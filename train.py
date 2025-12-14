@@ -13,7 +13,7 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
     precision_score
 
 # ==========================================
-# 1. CẤU HÌNH (SETTINGS)
+# 1. Config
 # ==========================================
 TRAIN_PATH = 'dataset/train_set.npz'
 TEST_PATH = 'dataset/test_set.npz'
@@ -28,7 +28,7 @@ print(f"Using device: {DEVICE}")
 
 
 # ==========================================
-# 2. CBAM MODULES (UPDATE 7x7)
+# 2. CBAM MODULES (7x7)
 # ==========================================
 
 class ChannelAttention(nn.Module):
@@ -50,10 +50,10 @@ class ChannelAttention(nn.Module):
 
 
 class SpatialAttention(nn.Module):
-    def __init__(self, kernel_size=7):  # <--- MẶC ĐỊNH LÀ 7
+    def __init__(self, kernel_size=7):  
         super(SpatialAttention, self).__init__()
 
-        # Logic padding tự động: Nếu 7x7 thì padding=3 để giữ nguyên kích thước ảnh
+    
         assert kernel_size in (3, 7), 'kernel size must be 3 or 7'
         padding = 3 if kernel_size == 7 else 1
 
@@ -235,7 +235,7 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    print("\nKhởi tạo ResNet18 + CBAM (Kernel 7x7)...")
+    print("\nKhởi tạo")
     model = ResNet18_CBAM(num_classes=len(unique_labels), dropout_prob=0.5)
     model = model.to(DEVICE)
 
@@ -280,7 +280,7 @@ def main():
             print(f"--> Kỷ lục mới: {best_acc:.4f}")
 
     print("\n" + "=" * 40)
-    print(f"KẾT QUẢ CHI TIẾT (CBAM 7x7)")
+    print(f"RESULT")
     print("=" * 40)
 
     model.load_state_dict(best_model_wts)
