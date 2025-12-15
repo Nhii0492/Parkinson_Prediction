@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parkinson's Disease Detection - Spiral Drawing Test</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>Parkinson's Disease Detection</h1>
+            <p class="subtitle">AI-powered spiral drawing analysis</p>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <!-- Upload Section -->
+            <section class="upload-section">
+                <div class="upload-box" id="uploadBox">
+                    <div class="upload-icon">📤</div>
+                    <h2>Upload Spiral Drawing</h2>
+                    <p class="upload-hint">Drag and drop image here or click to select</p>
+                    <input 
+                        type="file" 
+                        id="fileInput" 
+                        accept="image/*" 
+                        hidden
+                        aria-label="Select image file"
+                    >
+                    <button 
+                        class="btn btn-primary" 
+                        id="selectBtn"
+                        aria-label="Select image file"
+                    >
+                        Select Image
+                    </button>
+                </div>
+
+                <!-- Image Preview -->
+                <div class="preview-container" id="previewContainer" style="display: none;">
+                    <h3>Selected Image:</h3>
+                    <div class="image-preview">
+                        <img id="previewImage" alt="Preview of uploaded image">
+                    </div>
+                    <button class="btn btn-secondary" id="removeBtn">
+                        Remove Image
+                    </button>
+                </div>
+            </section>
+
+            <!-- Analyze Button -->
+            <section class="analyze-section">
+                <button 
+                    class="btn btn-analyze" 
+                    id="analyzeBtn" 
+                    disabled
+                    aria-label="Analyze image"
+                >
+                    🔍 Analyze
+                </button>
+                <div class="loading" id="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Analyzing...</p>
+                </div>
+            </section>
+
+            <!-- Result Section -->
+            <section class="result-section" id="resultSection" style="display: none;">
+                <h2>Analysis Result</h2>
+                <div class="result-card" id="resultCard">
+                    <div class="result-label" id="resultLabel"></div>
+                    <div class="result-confidence" id="resultConfidence"></div>
+                    <div class="result-message" id="resultMessage"></div>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section class="error-section" id="errorSection" style="display: none;">
+                <div class="error-message" id="errorMessage"></div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer>
+            <p>⚠️ Note: This is a support tool and does not replace professional medical diagnosis.</p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
+
