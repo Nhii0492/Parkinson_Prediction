@@ -58,6 +58,111 @@ section {
 }
 
 /* ==========================================
+   Tab Section
+   ========================================== */
+.tab-section {
+    margin-bottom: 30px;
+}
+
+.tab-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    padding: 12px 30px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border: 2px solid #667eea;
+    background: white;
+    color: #667eea;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tab-btn:hover {
+    background: #f0f2ff;
+    transform: translateY(-2px);
+}
+
+.tab-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+}
+
+.tab-btn:focus {
+    outline: 3px solid #667eea;
+    outline-offset: 2px;
+}
+
+/* ==========================================
+   Draw Section
+   ========================================== */
+.draw-section {
+    text-align: center;
+}
+
+.draw-container h3 {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.draw-hint {
+    color: #666;
+    margin-bottom: 10px;
+    font-size: 1rem;
+}
+
+.draw-instructions {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.draw-instructions p {
+    margin: 0;
+    color: #856404;
+    font-size: 0.95rem;
+}
+
+.canvas-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 15px;
+    border: 2px dashed #667eea;
+}
+
+#drawCanvas {
+    border: 2px solid #667eea;
+    border-radius: 10px;
+    background: white;
+    cursor: crosshair;
+    touch-action: none;
+    max-width: 100%;
+    height: auto;
+}
+
+.draw-controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* ==========================================
    Upload Section
    ========================================== */
 .upload-box {
@@ -351,6 +456,21 @@ footer {
 
     .result-confidence {
         font-size: 2.5rem;
+    }
+
+    .tab-btn {
+        padding: 10px 20px;
+        font-size: 1rem;
+    }
+
+    #drawCanvas {
+        width: 100%;
+        max-width: 400px;
+        height: auto;
+    }
+
+    .canvas-wrapper {
+        padding: 15px;
     }
 }
 

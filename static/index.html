@@ -16,8 +16,20 @@
 
         <!-- Main Content -->
         <main>
+            <!-- Tab Selection -->
+            <section class="tab-section">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" id="uploadTab" data-tab="upload">
+                        📤 Upload
+                    </button>
+                    <button class="tab-btn" id="drawTab" data-tab="draw">
+                        ✏️ Draw
+                    </button>
+                </div>
+            </section>
+
             <!-- Upload Section -->
-            <section class="upload-section">
+            <section class="upload-section" id="uploadSection">
                 <div class="upload-box" id="uploadBox">
                     <div class="upload-icon">📤</div>
                     <h2>Upload Spiral Drawing</h2>
@@ -47,6 +59,28 @@
                     <button class="btn btn-secondary" id="removeBtn">
                         Remove Image
                     </button>
+                </div>
+            </section>
+
+            <!-- Draw Section -->
+            <section class="draw-section" id="drawSection" style="display: none;">
+                <div class="draw-container">
+                    <h3>Draw Spiral</h3>
+                    <p class="draw-hint">Draw a spiral starting from the center, moving outward</p>
+                    <div class="draw-instructions">
+                        <p>💡 <strong>Tips:</strong> Draw slowly and smoothly. Start from the center and spiral outward.</p>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="drawCanvas" width="500" height="500"></canvas>
+                    </div>
+                    <div class="draw-controls">
+                        <button class="btn btn-secondary" id="clearCanvasBtn">
+                            🗑️ Clear
+                        </button>
+                        <button class="btn btn-primary" id="useDrawingBtn" disabled>
+                            Use This Drawing
+                        </button>
+                    </div>
                 </div>
             </section>
 

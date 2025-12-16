@@ -23,8 +23,21 @@ const resultMessage = document.getElementById('resultMessage');
 const errorSection = document.getElementById('errorSection');
 const errorMessage = document.getElementById('errorMessage');
 
+// Tab Elements
+const uploadTab = document.getElementById('uploadTab');
+const drawTab = document.getElementById('drawTab');
+const uploadSection = document.getElementById('uploadSection');
+const drawSection = document.getElementById('drawSection');
+
+// Canvas Elements
+const drawCanvas = document.getElementById('drawCanvas');
+const clearCanvasBtn = document.getElementById('clearCanvasBtn');
+const useDrawingBtn = document.getElementById('useDrawingBtn');
+
 // State
 let selectedFile = null;
+let isDrawing = false;
+let currentMode = 'upload';
 
 // ==========================================
 // Event Listeners
@@ -87,6 +100,45 @@ analyzeBtn.addEventListener('click', async () => {
     
     await analyzeImage(selectedFile);
 });
+
+// Tab switching
+uploadTab.addEventListener('click', () => switchTab('upload'));
+drawTab.addEventListener('click', () => switchTab('draw'));
+
+// Canvas drawing
+let ctx = drawCanvas.getContext('2d');
+
+// Setup canvas with background similar to real paper
+function setupCanvas() {
+    // Fill with light gray background (simulating paper)
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+    
+    // Use darker color for drawing (blue/black instead of pure black)
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+}
+
+setupCanvas();
+
+// Mouse events
+drawCanvas.addEventListener('mousedown', startDrawing);
+drawCanvas.addEventListener('mousemove', draw);
+drawCanvas.addEventListener('mouseup', stopDrawing);
+drawCanvas.addEventListener('mouseout', stopDrawing);
+
+// Touch events
+drawCanvas.addEventListener('touchstart', handleTouch);
+drawCanvas.addEventListener('touchmove', handleTouch);
+drawCanvas.addEventListener('touchend', stopDrawing);
+
+// Clear canvas
+clearCanvasBtn.addEventListener('click', clearCanvas);
+
+// Use drawing
+useDrawingBtn.addEventListener('click', useDrawing);
 
 // ==========================================
 // Functions
@@ -241,6 +293,118 @@ function hideError() {
  */
 function hideResult() {
     resultSection.style.display = 'none';
+}
+
+// ==========================================
+// Tab Functions
+// ==========================================
+function switchTab(mode) {
+    currentMode = mode;
+    
+    if (mode === 'upload') {
+        uploadTab.classList.add('active');
+        drawTab.classList.remove('active');
+        uploadSection.style.display = 'block';
+        drawSection.style.display = 'none';
+    } else {
+        drawTab.classList.add('active');
+        uploadTab.classList.remove('active');
+        uploadSection.style.display = 'none';
+        drawSection.style.display = 'block';
+    }
+    
+    hideError();
+    hideResult();
+}
+
+// ==========================================
+// Canvas Drawing Functions
+// ==========================================
+function getCanvasCoordinates(e) {
+    const rect = drawCanvas.getBoundingClientRect();
+    const scaleX = drawCanvas.width / rect.width;
+    const scaleY = drawCanvas.height / rect.height;
+    
+    if (e.touches) {
+        return {
+            x: (e.touches[0].clientX - rect.left) * scaleX,
+            y: (e.touches[0].clientY - rect.top) * scaleY
+        };
+    }
+    
+    return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+    };
+}
+
+function startDrawing(e) {
+    isDrawing = true;
+    const coords = getCanvasCoordinates(e);
+    ctx.beginPath();
+    ctx.moveTo(coords.x, coords.y);
+    useDrawingBtn.disabled = false;
+}
+
+function draw(e) {
+    if (!isDrawing) return;
+    e.preventDefault();
+    
+    const coords = getCanvasCoordinates(e);
+    ctx.lineTo(coords.x, coords.y);
+    ctx.stroke();
+}
+
+function stopDrawing() {
+    if (isDrawing) {
+        isDrawing = false;
+        ctx.beginPath();
+    }
+}
+
+function handleTouch(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                       e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+    });
+    drawCanvas.dispatchEvent(mouseEvent);
+}
+
+function clearCanvas() {
+    setupCanvas();
+    useDrawingBtn.disabled = true;
+    hideError();
+    hideResult();
+}
+
+function resetDrawing() {
+    clearCanvas();
+    selectedFile = null;
+    analyzeBtn.disabled = true;
+}
+
+function useDrawing() {
+    drawCanvas.toBlob((blob) => {
+        if (!blob) {
+            showError('Failed to create image from drawing');
+            return;
+        }
+        
+        const file = new File([blob], 'drawing.png', { type: 'image/png' });
+        selectedFile = file;
+        
+        previewImage.src = drawCanvas.toDataURL();
+        previewContainer.style.display = 'block';
+        uploadBox.style.display = 'none';
+        analyzeBtn.disabled = false;
+        
+        switchTab('upload');
+        hideError();
+        hideResult();
+    }, 'image/png');
 }
 
 // ==========================================
