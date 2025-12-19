@@ -6,7 +6,7 @@ This project focuses on **early screening of Parkinson’s Disease (PD)** in eld
 
 The goal is to build a **lightweight, accurate, and explainable deep learning model** that can support early diagnosis, especially in **resource-constrained areas** where access to neurologists is limited.
 
-This project was developed as part of the **USR “Co-Creating a Happy Life for the Elderly” Achievement Competition** at **National Chung Cheng University**.
+This project was developed as part of the **USR “Co-Creating a Happy Life for the Elderly”
 
 ---
 
@@ -90,23 +90,10 @@ These visual explanations increase trust and interpretability for medical use.
 
 ---
 
-## 👥 Team & Contributions
+## 👥 Team 
 
-| Member              | Contribution                                                            |
-| ------------------- | ----------------------------------------------------------------------- |
-| **Nguyen Thuc Nhi** | 40% – Model architecture design, training, poster & presentation slides |
-| **Nguyen Van Duc**  | 30% – Research paper, slides, poster                                    |
-| **Tran Thanh Nhu**  | 30% – Research documentation, website deployment                        |
-
----
-
-## 🏫 Institution
-
-**National Chung Cheng University**
-USR “Co-Creating a Happy Life for the Elderly” Program
-
----
-
-## 🙏 Acknowledgements
-
-Special thanks to the USR program, instructors, and teammates for their guidance and collaboration throughout this project.
+| Member              |
+| ------------------- | 
+| **Nguyen Thuc Nhi** | 
+| **Nguyen Van Duc**  | 
+| **Tran Thanh Nhu**  
