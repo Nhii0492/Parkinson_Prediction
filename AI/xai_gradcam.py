@@ -15,7 +15,7 @@ from pytorch_grad_cam.utils.image import show_cam_on_image
 # ==========================================
 # 1. CẤU HÌNH
 # ==========================================
-MODEL_PATH = 'parkinson_cbam7x7_best.pth'
+MODEL_PATH = 'model/parkinson_cbam7x7_best.pth'
 TEST_DATA_PATH = 'dataset/test_set.npz'
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 CLASS_NAMES = ['Healthy', 'Parkinson']

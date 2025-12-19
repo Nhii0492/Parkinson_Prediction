@@ -1,34 +1,27 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from torchvision import models, transforms
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
 from PIL import Image
 import os
-import copy
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, f1_score, recall_score, \
-    precision_score
+from sklearn.metrics import classification_report, accuracy_score, f1_score, recall_score, precision_score
 
 # ==========================================
 # 1. CẤU HÌNH (SETTINGS)
 # ==========================================
-TRAIN_PATH = 'dataset/train_set.npz'
-TEST_PATH = 'dataset/test_set.npz'
+MODEL_PATH = 'model/parkinson_cbam7x7_best.pth'
+TEST_SET_PATH = 'dataset/test_set.npz'
 
-BATCH_SIZE = 64
-LEARNING_RATE = 0.0001
-NUM_EPOCHS = 100
-MULTIPLIER = 50
+# Ảnh cần test riêng lẻ
+IMAGE_1_PATH = 'Parkinson_Prediction/dataset/test_image_healthy.png'
+IMAGE_2_PATH = 'dataset/test_image_parkinson.png'
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {DEVICE}")
 
 
 # ==========================================
-# 2. CBAM MODULES (UPDATE 7x7)
+# 2. ĐỊNH NGHĨA LẠI MODEL (PHẢI GIỐNG FILE TRAIN)
 # ==========================================
 
 class ChannelAttention(nn.Module):
@@ -36,7 +29,6 @@ class ChannelAttention(nn.Module):
         super(ChannelAttention, self).__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.max_pool = nn.AdaptiveMaxPool2d(1)
-
         self.fc1 = nn.Conv2d(in_planes, in_planes // ratio, 1, bias=False)
         self.relu1 = nn.ReLU()
         self.fc2 = nn.Conv2d(in_planes // ratio, in_planes, 1, bias=False)
@@ -50,13 +42,10 @@ class ChannelAttention(nn.Module):
 
 
 class SpatialAttention(nn.Module):
-    def __init__(self, kernel_size=7):  # <--- MẶC ĐỊNH LÀ 7
+    def __init__(self, kernel_size=7):
         super(SpatialAttention, self).__init__()
-
-        # Logic padding tự động: Nếu 7x7 thì padding=3 để giữ nguyên kích thước ảnh
         assert kernel_size in (3, 7), 'kernel size must be 3 or 7'
         padding = 3 if kernel_size == 7 else 1
-
         self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=padding, bias=False)
         self.bn = nn.BatchNorm2d(1)
         self.sigmoid = nn.Sigmoid()
@@ -71,7 +60,7 @@ class SpatialAttention(nn.Module):
 
 
 class CBAM(nn.Module):
-    def __init__(self, in_planes, ratio=16, kernel_size=7):  # <--- UPDATE kernel_size=7
+    def __init__(self, in_planes, ratio=16, kernel_size=7):
         super(CBAM, self).__init__()
         self.ca = ChannelAttention(in_planes, ratio)
         self.sa = SpatialAttention(kernel_size)
@@ -82,18 +71,11 @@ class CBAM(nn.Module):
         return x
 
 
-# ==========================================
-# 3. CUSTOM RESNET18 + CBAM (7x7)
-# ==========================================
 class ResNet18_CBAM(nn.Module):
     def __init__(self, num_classes=2, dropout_prob=0.5):
         super(ResNet18_CBAM, self).__init__()
 
-        try:
-            from torchvision.models import ResNet18_Weights
-            base_model = models.resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
-        except:
-            base_model = models.resnet18(pretrained=True)
+        base_model = models.resnet18(pretrained=False)
 
         self.conv1 = base_model.conv1
         self.bn1 = base_model.bn1
@@ -105,7 +87,6 @@ class ResNet18_CBAM(nn.Module):
         self.layer3 = base_model.layer3
         self.layer4 = base_model.layer4
 
-        # --- UPDATE: GỌI CBAM VỚI KERNEL 7x7 ---
         self.cbam1 = CBAM(64, kernel_size=7)
         self.cbam2 = CBAM(128, kernel_size=7)
         self.cbam3 = CBAM(256, kernel_size=7)
@@ -146,28 +127,19 @@ class ResNet18_CBAM(nn.Module):
 
 
 # ==========================================
-# 4. DATA PROCESSING (Giữ nguyên)
+# 3. CHUẨN BỊ DỮ LIỆU
 # ==========================================
-augment_transform = transforms.Compose([
-    transforms.RandomRotation(degrees=360),
-    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
-    transforms.RandomHorizontalFlip(p=0.5),
-    transforms.RandomVerticalFlip(p=0.5),
-    transforms.ColorJitter(brightness=0.2, contrast=0.2),
-])
-
-to_tensor_transform = transforms.Compose([
+# Transform cho inference (chỉ resize và normalize, không augment)
+inference_transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
 
-class GeneratedDataset(Dataset):
-    def __init__(self, x_data, y_data, class_map, multiplier=1):
+class TestDataset(Dataset):
+    def __init__(self, x_data, y_data, class_map):
         self.samples = []
-        print(f"--> Đang khởi tạo dữ liệu (Multiplier={multiplier})...")
-
         for idx in range(len(x_data)):
             img_arr = x_data[idx]
             if isinstance(img_arr, np.ndarray):
@@ -175,21 +147,16 @@ class GeneratedDataset(Dataset):
                 original_pil = Image.fromarray(img_arr).convert('RGB')
 
             label_raw = y_data[idx]
+            # Xử lý label
             if isinstance(label_raw, (str, np.str_)):
-                label_idx = class_map[label_raw]
+                label_idx = class_map.get(label_raw, 0)
             elif isinstance(label_raw, np.ndarray):
                 item = label_raw.item()
-                label_idx = class_map[item] if isinstance(item, (str, np.str_)) else item
+                label_idx = class_map.get(item, 0) if isinstance(item, (str, np.str_)) else item
             else:
                 label_idx = label_raw
 
-            self.samples.append((to_tensor_transform(original_pil), label_idx))
-
-            for _ in range(multiplier - 1):
-                aug_img = augment_transform(original_pil)
-                self.samples.append((to_tensor_transform(aug_img), label_idx))
-
-        print(f"    Hoàn tất! Tổng số ảnh: {len(self.samples)}")
+            self.samples.append((inference_transform(original_pil), label_idx))
 
     def __len__(self):
         return len(self.samples)
@@ -199,125 +166,137 @@ class GeneratedDataset(Dataset):
         return img, torch.tensor(label, dtype=torch.long)
 
 
-def plot_confusion_matrix(y_true, y_pred, class_names):
-    cm = confusion_matrix(y_true, y_pred)
-    plt.figure(figsize=(6, 5))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                xticklabels=class_names, yticklabels=class_names)
-    plt.xlabel('Predicted Label')
-    plt.ylabel('True Label')
-    plt.title('Confusion Matrix (CBAM 7x7)')
-    plt.savefig('confusion_matrix_cbam7x7.png')
-    plt.show()
+# ==========================================
+# 4. HÀM DỰ ĐOÁN
+# ==========================================
+
+def predict_single_image(model, image_path, class_names, device):
+    """
+    Dự đoán một ảnh lẻ từ đường dẫn
+    """
+    if not os.path.exists(image_path):
+        print(f"[CẢNH BÁO] Không tìm thấy ảnh: {image_path}")
+        return
+
+    # Mở ảnh
+    image = Image.open(image_path).convert('RGB')
+
+    # Tiền xử lý (Transform + thêm Batch dimension)
+    input_tensor = inference_transform(image).unsqueeze(0).to(device)
+
+    # Dự đoán
+    model.eval()
+    with torch.no_grad():
+        outputs = model(input_tensor)
+        probabilities = torch.softmax(outputs, dim=1)
+        confidence, predicted_class_idx = torch.max(probabilities, 1)
+
+    predicted_label = class_names[predicted_class_idx.item()]
+    conf_score = confidence.item() * 100
+
+    print("-" * 40)
+    print(f"Image: {os.path.basename(image_path)}")
+    print(f"Predict: {predicted_label}")
+    print(f"Confidence: {conf_score:.2f}%")
+
+    # In ra xác suất của từng lớp để tham khảo
+    for idx, name in enumerate(class_names):
+        print(f"   - {name}: {probabilities[0][idx].item() * 100:.2f}%")
+    print("-" * 40)
+
+
+def evaluate_entire_test_set(model, test_path, device):
+    """
+    Đánh giá lại toàn bộ tập test
+    """
+    if not os.path.exists(test_path):
+        print("Not dataset.")
+        return
+
+    print(f"\nImage from dataset{test_path}...")
+    data_test = np.load(test_path, allow_pickle=True)
+    x_test, y_test = data_test['arr_0'], data_test['arr_1']
+
+    # Tạo class map giả định (hoặc load từ file cấu hình nếu có)
+    unique_labels = np.unique(y_test)
+    class_map = {label: idx for idx, label in enumerate(unique_labels)}
+    class_names = [str(label) for label in unique_labels]
+
+    test_dataset = TestDataset(x_test, y_test, class_map)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+    print(f"Số lượng ảnh test: {len(test_dataset)}")
+
+    y_true = []
+    y_pred = []
+
+    model.eval()
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            inputs = inputs.to(device)
+            outputs = model(inputs)
+            _, preds = torch.max(outputs, 1)
+
+            y_true.extend(labels.cpu().numpy())
+            y_pred.extend(preds.cpu().numpy())
+
+    # Tính toán metrics
+    acc = accuracy_score(y_true, y_pred)
+    prec = precision_score(y_true, y_pred, average='macro', zero_division=0)
+    rec = recall_score(y_true, y_pred, average='macro', zero_division=0)
+    f1 = f1_score(y_true, y_pred, average='macro', zero_division=0)
+
+    print("\n=== RESULT ===")
+    print(f"Accuracy : {acc:.4f}")
+    print(f"Precision: {prec:.4f}")
+    print(f"Recall   : {rec:.4f}")
+    print(f"F1 Score : {f1:.4f}")
+    print("\nClassification Report:")
+    print(classification_report(y_true, y_pred, target_names=class_names, zero_division=0))
+
+    return class_names  # Trả về tên lớp để dùng cho dự đoán ảnh lẻ
 
 
 # ==========================================
 # 5. MAIN
 # ==========================================
 def main():
-    try:
-        data_train = np.load(TRAIN_PATH, allow_pickle=True)
-        x_train, y_train = data_train['arr_0'], data_train['arr_1']
-        data_test = np.load(TEST_PATH, allow_pickle=True)
-        x_test, y_test = data_test['arr_0'], data_test['arr_1']
+    print(f"Sử dụng thiết bị: {DEVICE}")
 
-        unique_labels = np.unique(y_train)
-        class_map = {label: idx for idx, label in enumerate(unique_labels)}
-        class_names = [str(label) for label in unique_labels]
-        print(f"Class Map: {class_map}")
-    except Exception as e:
-        print(f"Lỗi load data: {e}")
+    # 1. Khởi tạo model
+    # Lưu ý: num_classes=2. Nếu tập dữ liệu của bạn khác 2 lớp, hãy sửa số này.
+    model = ResNet18_CBAM(num_classes=2).to(DEVICE)
+
+    # 2. Load Weights
+    if os.path.exists(MODEL_PATH):
+        print(f"Đang load model từ: {MODEL_PATH}")
+        try:
+            model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+            print("Load model thành công!")
+        except Exception as e:
+            print(f"Lỗi khi load model: {e}")
+            return
+    else:
+        print(f"Lỗi: Không tìm thấy file model {MODEL_PATH}")
         return
 
-    train_dataset = GeneratedDataset(x_train, y_train, class_map, multiplier=MULTIPLIER)
-    test_dataset = GeneratedDataset(x_test, y_test, class_map, multiplier=1)
+    # 3. Đánh giá tập Test Set (và lấy danh sách tên lớp)
+    # Nếu không có file dataset test, ta mặc định tên lớp là ['Healthy', 'Parkinson']
+    # Cần đảm bảo thứ tự này khớp với lúc train (thường là a-z: Healthy trước Parkinson)
+    class_names = evaluate_entire_test_set(model, TEST_SET_PATH, DEVICE)
 
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
+    if class_names is None:
+        # Fallback nếu không load được tập test
+        class_names = ['Healthy', 'Parkinson']
+        print(f"Sử dụng class names mặc định: {class_names}")
 
-    print("\nKhởi tạo ResNet18 + CBAM (Kernel 7x7)...")
-    model = ResNet18_CBAM(num_classes=len(unique_labels), dropout_prob=0.5)
-    model = model.to(DEVICE)
+    print("\n=== Test===")
+    # 4. Dự đoán ảnh Healthy
+    predict_single_image(model, IMAGE_1_PATH, class_names, DEVICE)
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
-    print("\nBẮT ĐẦU HUẤN LUYỆN...")
-    best_model_wts = copy.deepcopy(model.state_dict())
-    best_acc = 0.0
-
-    for epoch in range(NUM_EPOCHS):
-        model.train()
-        train_correct = 0
-        for inputs, labels in train_loader:
-            inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            train_correct += (outputs.argmax(1) == labels).sum().item()
-
-        epoch_acc = train_correct / len(train_dataset)
-
-        model.eval()
-        all_preds = []
-        all_labels = []
-        with torch.no_grad():
-            for inputs, labels in test_loader:
-                inputs = inputs.to(DEVICE)
-                outputs = model(inputs)
-                _, preds = torch.max(outputs, 1)
-                all_preds.extend(preds.cpu().numpy())
-                all_labels.extend(labels.cpu().numpy())
-
-        val_acc = accuracy_score(all_labels, all_preds)
-        print(f"Epoch {epoch + 1}/{NUM_EPOCHS} | Train Acc: {epoch_acc:.4f} | Test Acc: {val_acc:.4f}")
-
-        if val_acc > best_acc:
-            best_acc = val_acc
-            best_model_wts = copy.deepcopy(model.state_dict())
-            print(f"--> Kỷ lục mới: {best_acc:.4f}")
-
-    print("\n" + "=" * 40)
-    print(f"KẾT QUẢ CHI TIẾT (CBAM 7x7)")
-    print("=" * 40)
-
-    model.load_state_dict(best_model_wts)
-    model.eval()
-
-    y_true_final = []
-    y_pred_final = []
-
-    with torch.no_grad():
-        for inputs, labels in test_loader:
-            inputs = inputs.to(DEVICE)
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
-            y_true_final.extend(labels.cpu().numpy())
-            y_pred_final.extend(preds.cpu().numpy())
-
-    final_acc = accuracy_score(y_true_final, y_pred_final)
-    final_prec = precision_score(y_true_final, y_pred_final, average='macro')
-    final_rec = recall_score(y_true_final, y_pred_final, average='macro')
-    final_f1 = f1_score(y_true_final, y_pred_final, average='macro')
-
-    print(f"Overall Accuracy  : {final_acc:.15f}")
-    print(f"Average Precision : {final_prec:.15f}")
-    print(f"Average Recall    : {final_rec:.15f}")
-    print(f"Average F1 Score  : {final_f1:.15f}")
-
-    save_path = 'parkinson_cbam7x7_best.pth'
-    torch.save(model.state_dict(), save_path)
-    file_size_mb = os.path.getsize(save_path) / (1024 * 1024)
-
-    print("-" * 40)
-    print(f"Đã lưu model tại: {save_path}")
-    print(f"Model Size      : {file_size_mb:.6f} MB")
-    print("-" * 40)
-
-    plot_confusion_matrix(y_true_final, y_pred_final, class_names)
+    # 5. Dự đoán ảnh Parkinson
+    predict_single_image(model, IMAGE_2_PATH, class_names, DEVICE)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
