@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 import os
-import random  
+import random  # Thư viện để random
 
 # Import GradCAM++
 from pytorch_grad_cam import GradCAMPlusPlus
@@ -13,7 +13,7 @@ from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 
 # ==========================================
-# 1. Config
+# 1. CẤU HÌNH
 # ==========================================
 MODEL_PATH = 'parkinson_cbam7x7_best.pth'
 TEST_DATA_PATH = 'dataset/test_set.npz'
@@ -22,7 +22,7 @@ CLASS_NAMES = ['Healthy', 'Parkinson']
 
 
 # ==========================================
-# 2. MODEL (ResNet18 + CBAM 7x7)
+# 2. ĐỊNH NGHĨA MODEL (ResNet18 + CBAM 7x7)
 # ==========================================
 class ChannelAttention(nn.Module):
     def __init__(self, in_planes, ratio=16):
@@ -118,7 +118,7 @@ class ResNet18_CBAM(nn.Module):
 
 
 # ==========================================
-# 3. Supporting
+# 3. HÀM HỖ TRỢ
 # ==========================================
 def load_trained_model():
     print(f"Loading custom model from {MODEL_PATH}...")
@@ -184,7 +184,7 @@ def visualize_and_save(model, img_raw, true_label_str, pred_str, conf, save_name
 
 
 # ==========================================
-# 4. Main GradCam++
+# 4. CHƯƠNG TRÌNH CHÍNH
 # ==========================================
 def main():
     # 1. Load Model & Data
@@ -194,12 +194,13 @@ def main():
     data = np.load(TEST_DATA_PATH, allow_pickle=True)
     x_test, y_test = data['arr_0'], data['arr_1']
 
-
+    # Danh sách chứa index các ảnh dự đoán ĐÚNG
     correct_healthy_indices = []
     correct_parkinson_indices = []
 
-    print("\n Processing...")
+    print("\nĐang quét toàn bộ tập Test để phân loại...")
 
+    # Quét toàn bộ tập test để tìm ảnh đúng
     for i in range(len(x_test)):
         img_raw = x_test[i]
         label_raw = y_test[i]
@@ -212,9 +213,9 @@ def main():
             output = model(input_tensor)
             probs = torch.nn.functional.softmax(output[0], dim=0)
             pred_idx = torch.argmax(probs).item()
-            pred_str = CLASS_NAMES[pred_idx].lower()  
+            pred_str = CLASS_NAMES[pred_idx].lower()  # Chuyển về chữ thường để so sánh
 
-        # If Ok
+        # Nếu dự đoán đúng
         if pred_str == true_label_str:
             if true_label_str == 'healthy':
                 correct_healthy_indices.append((i, probs[pred_idx].item()))
